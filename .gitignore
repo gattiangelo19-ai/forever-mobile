@@ -1,0 +1,19 @@
+# Dipendenze
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+
+# Variabili d'ambiente
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
