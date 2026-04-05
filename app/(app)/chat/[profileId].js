@@ -11,6 +11,12 @@ import MessageBubble from '../../../src/components/chat/MessageBubble';
 import VoiceRecorder from '../../../src/components/chat/VoiceRecorder';
 import { colors, spacing, radius } from '../../../src/constants/theme';
 
+// Emoji picker solo su web
+let EmojiPicker = null;
+if (Platform.OS === 'web') {
+  EmojiPicker = require('emoji-picker-react').default;
+}
+
 export default function ChatScreen() {
   const { profileId } = useLocalSearchParams();
   const navigation = useNavigation();
@@ -18,6 +24,7 @@ export default function ChatScreen() {
 
   const [text, setText] = useState('');
   const [profile, setProfile] = useState(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   const {
     messages, sessionId, isTyping, isSending,
@@ -33,7 +40,7 @@ export default function ChatScreen() {
       // Carica profilo
       const { data } = await api.get(`/profiles/${profileId}`);
       setProfile(data.data);
-      navigation.setOptions({ title: data.data.name });
+      navigation.setOptions({ title: data.data.chatExportName || data.data.name });
 
       // Inizializza sessione e messaggi
       await initSession(profileId);
@@ -108,7 +115,7 @@ export default function ChatScreen() {
             </View>
           )}
           <View>
-            <Text style={styles.profileName}>{profile.name} {profile.surname}</Text>
+            <Text style={styles.profileName}>{profile.chatExportName || `${profile.name} ${profile.surname}`}</Text>
             <Text style={styles.profileStatus}>
               {isTyping ? '✍️ sta scrivendo...' : '● Online'}
             </Text>
@@ -138,8 +145,33 @@ export default function ChatScreen() {
         </View>
       )}
 
+      {/* Emoji picker (solo web) */}
+      {Platform.OS === 'web' && showEmojiPicker && EmojiPicker && (
+        <View style={styles.emojiPickerContainer}>
+          <EmojiPicker
+            onEmojiClick={(emojiData) => {
+              setText((prev) => prev + emojiData.emoji);
+              setShowEmojiPicker(false);
+            }}
+            theme="dark"
+            height={350}
+            width="100%"
+            searchPlaceholder="Cerca emoji..."
+          />
+        </View>
+      )}
+
       {/* Input bar */}
       <View style={styles.inputBar}>
+        {Platform.OS === 'web' && (
+          <TouchableOpacity
+            style={styles.emojiBtn}
+            onPress={() => setShowEmojiPicker((v) => !v)}
+          >
+            <Text style={styles.emojiBtnText}>😊</Text>
+          </TouchableOpacity>
+        )}
+
         <TextInput
           style={styles.input}
           value={text}
@@ -149,6 +181,7 @@ export default function ChatScreen() {
           multiline
           maxLength={1000}
           returnKeyType="default"
+          onFocus={() => setShowEmojiPicker(false)}
         />
 
         {text.trim().length > 0 ? (
@@ -237,4 +270,15 @@ const styles = StyleSheet.create({
   },
   sendBtnDisabled: { opacity: 0.5 },
   sendIcon: { color: colors.white, fontSize: 16, fontWeight: '700' },
+
+  emojiBtn: {
+    width: 36, height: 36,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  emojiBtnText: { fontSize: 22 },
+  emojiPickerContainer: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.surface,
+  },
 });

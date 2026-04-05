@@ -44,10 +44,12 @@ export const radius = {
   full: 999,
 };
 
+const EMOJI_FONT = "'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', 'Twemoji Mozilla', system-ui, sans-serif";
+
 export const typography = {
-  h1: { fontSize: 28, fontWeight: '700', color: colors.textPrimary },
-  h2: { fontSize: 22, fontWeight: '700', color: colors.textPrimary },
-  h3: { fontSize: 18, fontWeight: '600', color: colors.textPrimary },
-  body: { fontSize: 15, fontWeight: '400', color: colors.textPrimary },
-  caption: { fontSize: 12, fontWeight: '400', color: colors.textSecondary },
+  h1: { fontSize: 28, fontWeight: '700', color: colors.textPrimary, fontFamily: EMOJI_FONT },
+  h2: { fontSize: 22, fontWeight: '700', color: colors.textPrimary, fontFamily: EMOJI_FONT },
+  h3: { fontSize: 18, fontWeight: '600', color: colors.textPrimary, fontFamily: EMOJI_FONT },
+  body: { fontSize: 15, fontWeight: '400', color: colors.textPrimary, fontFamily: EMOJI_FONT },
+  caption: { fontSize: 12, fontWeight: '400', color: colors.textSecondary, fontFamily: EMOJI_FONT },
 };

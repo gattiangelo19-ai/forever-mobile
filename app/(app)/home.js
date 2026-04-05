@@ -66,9 +66,17 @@ export default function HomeScreen() {
       </View>
 
       <View style={styles.cardInfo}>
-        <Text style={styles.cardName}>{item.name} {item.surname}</Text>
+        <Text style={styles.cardName}>{item.chatExportName || `${item.name} ${item.surname}`}</Text>
         <Text style={styles.cardRelation}>{RELATIONSHIP_LABELS[item.relationshipType]}</Text>
       </View>
+
+      <TouchableOpacity
+        style={styles.editBtn}
+        onPress={() => router.push(`/onboarding/edit-profile?profileId=${item.id}`)}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      >
+        <Text style={styles.editIcon}>✏️</Text>
+      </TouchableOpacity>
 
       <Text style={styles.arrow}>›</Text>
     </TouchableOpacity>
@@ -163,6 +171,8 @@ const styles = StyleSheet.create({
   cardInfo: { flex: 1 },
   cardName: { ...typography.body, fontWeight: '600' },
   cardRelation: { ...typography.caption, marginTop: 2 },
+  editBtn: { padding: spacing.xs, marginRight: spacing.xs },
+  editIcon: { fontSize: 16 },
   arrow: { color: colors.textMuted, fontSize: 24, fontWeight: '300' },
 
   empty: { alignItems: 'center', paddingTop: spacing.xxl * 2 },

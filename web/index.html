@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+    <meta name="theme-color" content="#1a1a2e" />
+    <title>ForEver</title>
+    <style>
+      /* Forza rendering emoji su tutti i browser */
+      *, *::before, *::after {
+        font-family:
+          'Segoe UI Emoji',
+          'Apple Color Emoji',
+          'Noto Color Emoji',
+          'Twemoji Mozilla',
+          system-ui,
+          sans-serif !important;
+      }
+
+      /* Sfondo scuro durante il caricamento */
+      body {
+        background-color: #0f0f1a;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+      }
+
+      /* Nasconde la scrollbar nativa del browser (l'app ha la sua) */
+      ::-webkit-scrollbar { display: none; }
+      * { scrollbar-width: none; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

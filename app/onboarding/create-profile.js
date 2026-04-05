@@ -30,25 +30,20 @@ export default function CreateProfileScreen() {
   const [loading, setLoading] = useState(false);
   const [profileId, setProfileId] = useState(null);
 
-  // Step 0 - Dati
   const [form, setForm] = useState({
     name: '', surname: '', age: '', gender: 'MALE', relationshipType: 'FATHER',
     voiceMessagePercent: 30,
   });
 
-  // Step 1 - Foto
   const [avatar, setAvatar] = useState(null);
   const [photos, setPhotos] = useState([]);
-
-  // Step 2 - Voce
   const [voiceUri, setVoiceUri] = useState(null);
   const [recording, setRecording] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
-
-  // Step 3 - Chat history
   const [chatText, setChatText] = useState('');
+  const [chatExportName, setChatExportName] = useState('');
 
-  // ─── NAVIGAZIONE STEP ───────────────────────────────────────────────────────
+  // ─── NAVIGAZIONE ────────────────────────────────────────────────────────────
   const next = async () => {
     if (step === 0) await handleCreateProfile();
     else if (step === 1) await handleUploadMedia();
@@ -60,6 +55,15 @@ export default function CreateProfileScreen() {
   const skip = () => {
     if (step < STEPS.length - 1) setStep((s) => s + 1);
     else router.replace('/(app)/home');
+  };
+
+  // Torna allo step precedente — lo step 0 torna alla home
+  const goBack = () => {
+    if (step === 0) {
+      router.back();
+    } else {
+      setStep((s) => s - 1);
+    }
   };
 
   // ─── STEP 0: Crea profilo base ───────────────────────────────────────────────
@@ -84,9 +88,7 @@ export default function CreateProfileScreen() {
   const pickAvatar = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
+      allowsEditing: true, aspect: [1, 1], quality: 0.8,
     });
     if (!result.canceled) setAvatar(result.assets[0]);
   };
@@ -94,8 +96,7 @@ export default function CreateProfileScreen() {
   const pickPhotos = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsMultipleSelection: true,
-      quality: 0.8,
+      allowsMultipleSelection: true, quality: 0.8,
     });
     if (!result.canceled) setPhotos(result.assets.slice(0, 10));
   };
@@ -104,23 +105,21 @@ export default function CreateProfileScreen() {
     setLoading(true);
     try {
       if (avatar) {
-        const form = new FormData();
-        form.append('avatar', { uri: avatar.uri, name: 'avatar.jpg', type: 'image/jpeg' });
-        await api.patch(`/profiles/${profileId}/avatar`, form, {
+        const f = new FormData();
+        f.append('avatar', { uri: avatar.uri, name: 'avatar.jpg', type: 'image/jpeg' });
+        await api.patch(`/profiles/${profileId}/avatar`, f, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
       }
-
       if (photos.length > 0) {
-        const form = new FormData();
+        const f = new FormData();
         photos.forEach((p, i) => {
-          form.append('photos', { uri: p.uri, name: `photo_${i}.jpg`, type: 'image/jpeg' });
+          f.append('photos', { uri: p.uri, name: `photo_${i}.jpg`, type: 'image/jpeg' });
         });
-        await api.post(`/profiles/${profileId}/photos`, form, {
+        await api.post(`/profiles/${profileId}/photos`, f, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
       }
-
       setStep(2);
     } catch (err) {
       Alert.alert('Errore upload', err.response?.data?.error || 'Upload fallito');
@@ -133,11 +132,8 @@ export default function CreateProfileScreen() {
   const startRecording = async () => {
     const { granted } = await Audio.requestPermissionsAsync();
     if (!granted) { Alert.alert('Permesso negato', 'Abilita il microfono'); return; }
-
     await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
-    const { recording: rec } = await Audio.Recording.createAsync(
-      Audio.RecordingOptionsPresets.HIGH_QUALITY
-    );
+    const { recording: rec } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
     setRecording(rec);
     setIsRecording(true);
   };
@@ -157,12 +153,12 @@ export default function CreateProfileScreen() {
   };
 
   const handleUploadVoice = async () => {
-    if (!voiceUri) { setStep(3); return; } // opzionale
+    if (!voiceUri) { setStep(3); return; }
     setLoading(true);
     try {
-      const form = new FormData();
-      form.append('voice', { uri: voiceUri, name: 'voice.mp3', type: 'audio/mpeg' });
-      await api.post(`/profiles/${profileId}/voice`, form, {
+      const f = new FormData();
+      f.append('voice', { uri: voiceUri, name: 'voice.mp3', type: 'audio/mpeg' });
+      await api.post(`/profiles/${profileId}/voice`, f, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       setStep(3);
@@ -175,17 +171,28 @@ export default function CreateProfileScreen() {
 
   // ─── STEP 3: Upload chat history ────────────────────────────────────────────
   const pickChatFile = async () => {
-    const result = await DocumentPicker.getDocumentAsync({ type: ['text/plain', 'application/zip'] });
+    const result = await DocumentPicker.getDocumentAsync({ type: ['text/plain'] });
     if (result.canceled) return;
-    const text = await FileSystem.readAsStringAsync(result.assets[0].uri);
+    const asset = result.assets[0];
+    if (asset.file) {
+      const text = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = reject;
+        reader.readAsText(asset.file, 'utf-8');
+      });
+      setChatText(text);
+      return;
+    }
+    const text = await FileSystem.readAsStringAsync(asset.uri);
     setChatText(text);
   };
 
   const handleUploadChat = async () => {
-    if (!chatText) { setStep(4); return; } // opzionale
+    if (!chatText) { setStep(4); return; }
     setLoading(true);
     try {
-      await api.post(`/profiles/${profileId}/chat-history`, { chatText });
+      await api.post(`/profiles/${profileId}/chat-history`, { chatText, chatExportName });
       setStep(4);
     } catch (err) {
       Alert.alert('Errore', err.response?.data?.error || 'Analisi chat fallita');
@@ -194,25 +201,32 @@ export default function CreateProfileScreen() {
     }
   };
 
-  // ─── RENDER STEP ────────────────────────────────────────────────────────────
+  // ─── RENDER ──────────────────────────────────────────────────────────────────
   const renderStep = () => {
     switch (step) {
       case 0: return <StepData form={form} setForm={setForm} />;
       case 1: return <StepMedia avatar={avatar} photos={photos} onPickAvatar={pickAvatar} onPickPhotos={pickPhotos} />;
       case 2: return <StepVoice voiceUri={voiceUri} isRecording={isRecording} onStartRec={startRecording} onStopRec={stopRecording} onPickFile={pickVoiceFile} />;
-      case 3: return <StepChat chatText={chatText} onPickFile={pickChatFile} />;
+      case 3: return <StepChat chatText={chatText} chatExportName={chatExportName} onPickFile={pickChatFile} onChangeName={setChatExportName} />;
       case 4: return <StepPreferences form={form} setForm={setForm} />;
     }
   };
 
   return (
     <View style={styles.container}>
-      {/* Progress bar */}
+      {/* Progress bar — cliccabile per navigare agli step già completati */}
       <View style={styles.progressRow}>
         {STEPS.map((s, i) => (
-          <View key={s} style={[styles.progressDot, i <= step && styles.progressDotActive]}>
+          <TouchableOpacity
+            key={s}
+            style={[styles.progressDot, i <= step && styles.progressDotActive]}
+            onPress={() => {
+              // Permetti di tornare a step già visitati (non andare avanti)
+              if (i < step && i > 0) setStep(i);
+            }}
+          >
             <Text style={[styles.progressLabel, i <= step && styles.progressLabelActive]}>{s}</Text>
-          </View>
+          </TouchableOpacity>
         ))}
       </View>
 
@@ -222,11 +236,19 @@ export default function CreateProfileScreen() {
 
       {/* Azioni */}
       <View style={styles.actions}>
+        {/* Tasto Indietro */}
+        <TouchableOpacity onPress={goBack} style={styles.backBtn} disabled={loading}>
+          <Text style={styles.backText}>‹ Indietro</Text>
+        </TouchableOpacity>
+
+        {/* Tasto Salta (step opzionali 1-3) */}
         {step > 0 && step < 4 && (
-          <TouchableOpacity onPress={skip} style={styles.skipBtn}>
+          <TouchableOpacity onPress={skip} style={styles.skipBtn} disabled={loading}>
             <Text style={styles.skipText}>Salta</Text>
           </TouchableOpacity>
         )}
+
+        {/* Tasto Avanti / Fine */}
         <TouchableOpacity
           style={[styles.nextBtn, loading && styles.btnDisabled]}
           onPress={next}
@@ -241,7 +263,7 @@ export default function CreateProfileScreen() {
   );
 }
 
-// ─── COMPONENTI STEP ────────────────────────────────────────────────────────
+// ─── COMPONENTI STEP ─────────────────────────────────────────────────────────
 
 function StepData({ form, setForm }) {
   const set = (key) => (val) => setForm((f) => ({ ...f, [key]: val }));
@@ -305,22 +327,21 @@ function StepMedia({ avatar, photos, onPickAvatar, onPickPhotos }) {
     <View style={styles.stepContainer}>
       <Text style={typography.h2}>Foto</Text>
       <Text style={[typography.caption, { marginBottom: spacing.lg, marginTop: spacing.xs }]}>
-        Carica l'immagine del profilo e altre foto. Verranno usate per generare nuove immagini.
+        Carica l'immagine del profilo e altre foto.
       </Text>
-
       <TouchableOpacity style={styles.uploadBox} onPress={onPickAvatar}>
         {avatar ? (
           <Image source={{ uri: avatar.uri }} style={styles.avatarPreview} />
         ) : (
           <Text style={styles.uploadIcon}>📷</Text>
         )}
-        <Text style={styles.uploadLabel}>Foto profilo</Text>
+        <Text style={styles.uploadLabel}>{avatar ? '✓ Foto profilo selezionata' : 'Foto profilo'}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={[styles.uploadBox, { marginTop: spacing.md }]} onPress={onPickPhotos}>
         <Text style={styles.uploadIcon}>🖼</Text>
         <Text style={styles.uploadLabel}>
-          {photos.length > 0 ? `${photos.length} foto selezionate` : 'Altre foto (opzionale)'}
+          {photos.length > 0 ? `✓ ${photos.length} foto selezionate` : 'Altre foto (opzionale)'}
         </Text>
       </TouchableOpacity>
     </View>
@@ -332,9 +353,8 @@ function StepVoice({ voiceUri, isRecording, onStartRec, onStopRec, onPickFile })
     <View style={styles.stepContainer}>
       <Text style={typography.h2}>Messaggio vocale</Text>
       <Text style={[typography.caption, { marginBottom: spacing.lg, marginTop: spacing.xs }]}>
-        Carica o registra un messaggio vocale della persona defunta. Servirà a replicarne la voce.
+        Carica o registra un messaggio vocale per replicarne la voce.
       </Text>
-
       <TouchableOpacity
         style={[styles.uploadBox, isRecording && { borderColor: colors.error }]}
         onPress={isRecording ? onStopRec : onStartRec}
@@ -353,21 +373,32 @@ function StepVoice({ voiceUri, isRecording, onStartRec, onStopRec, onPickFile })
   );
 }
 
-function StepChat({ chatText, onPickFile }) {
+function StepChat({ chatText, chatExportName, onPickFile, onChangeName }) {
   return (
     <View style={styles.stepContainer}>
       <Text style={typography.h2}>Storico chat</Text>
       <Text style={[typography.caption, { marginBottom: spacing.md, marginTop: spacing.xs }]}>
-        Importa l'export della vostra chat WhatsApp o Telegram. L'AI imparerà il suo stile di scrittura.
+        Importa l'export della vostra chat WhatsApp o Telegram.
       </Text>
-
       <View style={styles.infoBox}>
         <Text style={styles.infoText}>
           📱 WhatsApp: Chat → Esporta chat → Senza media → .txt{'\n'}
           ✈️ Telegram: Desktop → Menu profilo → Esporta → .json
         </Text>
       </View>
-
+      <Text style={[styles.label, { marginTop: spacing.md }]}>
+        Come appare il suo nome nella chat?
+      </Text>
+      <Text style={[styles.label, { color: colors.textMuted, marginTop: 0 }]}>
+        Es. "Mamma", "Marco R.", "Papà ❤️" — esattamente come lo vedi nell'export
+      </Text>
+      <TextInput
+        style={styles.input}
+        value={chatExportName}
+        onChangeText={onChangeName}
+        placeholder="Nome come appare nella chat..."
+        placeholderTextColor={colors.textMuted}
+      />
       <TouchableOpacity style={[styles.uploadBox, { marginTop: spacing.md }]} onPress={onPickFile}>
         <Text style={styles.uploadIcon}>📄</Text>
         <Text style={styles.uploadLabel}>
@@ -381,14 +412,12 @@ function StepChat({ chatText, onPickFile }) {
 function StepPreferences({ form, setForm }) {
   const percent = form.voiceMessagePercent;
   const set = (val) => setForm((f) => ({ ...f, voiceMessagePercent: val }));
-
   return (
     <View style={styles.stepContainer}>
       <Text style={typography.h2}>Preferenze</Text>
       <Text style={[typography.caption, { marginBottom: spacing.lg, marginTop: spacing.xs }]}>
         Con quale frequenza vuoi ricevere messaggi vocali?
       </Text>
-
       <View style={styles.preferenceCard}>
         <View style={styles.preferenceRow}>
           <Text style={styles.prefLabel}>💬 Testo</Text>
@@ -407,18 +436,14 @@ function StepPreferences({ form, setForm }) {
           {100 - percent}% testo · {percent}% vocale
         </Text>
       </View>
-
       <View style={styles.infoBox}>
-        <Text style={styles.infoText}>
-          ✓ Profilo creato con successo!{'\n'}
-          Puoi modificare queste impostazioni in qualsiasi momento dal profilo.
-        </Text>
+        <Text style={styles.infoText}>✓ Profilo pronto! Puoi modificarlo in qualsiasi momento.</Text>
       </View>
     </View>
   );
 }
 
-// ─── STILI ──────────────────────────────────────────────────────────────────
+// ─── STILI ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   progressRow: {
@@ -428,7 +453,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  progressDot: { alignItems: 'center' },
+  progressDot: { alignItems: 'center', padding: spacing.xs },
   progressDotActive: {},
   progressLabel: { fontSize: 11, color: colors.textMuted },
   progressLabelActive: { color: colors.primary, fontWeight: '700' },
@@ -448,49 +473,32 @@ const styles = StyleSheet.create({
   },
   pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginBottom: spacing.sm },
   pill: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.full,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.xs,
+    borderRadius: radius.full, borderWidth: 1,
+    borderColor: colors.border, backgroundColor: colors.surface,
   },
   pillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   pillText: { color: colors.textSecondary, fontSize: 13 },
   pillTextActive: { color: colors.white, fontWeight: '600' },
   uploadBox: {
-    borderWidth: 2,
-    borderColor: colors.border,
-    borderStyle: 'dashed',
-    borderRadius: radius.lg,
-    padding: spacing.xl,
-    alignItems: 'center',
+    borderWidth: 2, borderColor: colors.border, borderStyle: 'dashed',
+    borderRadius: radius.lg, padding: spacing.xl, alignItems: 'center',
   },
   uploadIcon: { fontSize: 36, marginBottom: spacing.sm },
   uploadLabel: { color: colors.textSecondary, fontSize: 14 },
   avatarPreview: { width: 80, height: 80, borderRadius: 40, marginBottom: spacing.sm },
   infoBox: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.primary,
-    marginTop: spacing.sm,
+    backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md,
+    borderLeftWidth: 3, borderLeftColor: colors.primary, marginTop: spacing.sm,
   },
   infoText: { color: colors.textSecondary, fontSize: 13, lineHeight: 20 },
-  preferenceCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-  },
+  preferenceCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md },
   preferenceRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.md },
   prefLabel: { color: colors.textPrimary, fontSize: 15 },
   sliderRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.md },
   sliderDot: {
     width: 20, height: 20, borderRadius: 10,
-    backgroundColor: colors.surfaceLight,
-    borderWidth: 1, borderColor: colors.border,
+    backgroundColor: colors.surfaceLight, borderWidth: 1, borderColor: colors.border,
   },
   sliderDotActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   percentText: { textAlign: 'center', color: colors.textSecondary, fontSize: 13 },
@@ -500,10 +508,19 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     paddingBottom: Platform.OS === 'ios' ? 34 : spacing.lg,
     backgroundColor: colors.background,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    gap: spacing.sm,
+    borderTopWidth: 1, borderTopColor: colors.border,
+    gap: spacing.xs,
   },
+  backBtn: {
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  backText: { color: colors.textSecondary, fontWeight: '600', fontSize: 14 },
   skipBtn: {
     flex: 1,
     borderRadius: radius.md,
