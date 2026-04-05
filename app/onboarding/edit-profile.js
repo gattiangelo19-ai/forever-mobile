@@ -157,6 +157,38 @@ export default function EditProfileScreen() {
     }
   };
 
+  const handleDelete = async () => {
+    if (Platform.OS === 'web') {
+      if (!window.confirm('Eliminare questo profilo? Tutti i messaggi e i dati verranno cancellati definitivamente.')) return;
+      try {
+        await api.delete(`/profiles/${profileId}`);
+        router.replace('/(app)/home');
+      } catch (err) {
+        window.alert(err.response?.data?.error || 'Eliminazione fallita');
+      }
+    } else {
+      Alert.alert(
+        'Elimina profilo',
+        'Tutti i messaggi e i dati verranno cancellati definitivamente. Questa azione è irreversibile.',
+        [
+          { text: 'Annulla', style: 'cancel' },
+          {
+            text: 'Elimina definitivamente',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await api.delete(`/profiles/${profileId}`);
+                router.replace('/(app)/home');
+              } catch (err) {
+                Alert.alert('Errore', err.response?.data?.error || 'Eliminazione fallita');
+              }
+            },
+          },
+        ]
+      );
+    }
+  };
+
   const savePreferences = async () => {
     setSaving(true);
     try {
@@ -452,6 +484,10 @@ export default function EditProfileScreen() {
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {renderSection()}
+
+        <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
+          <Text style={styles.deleteBtnText}>Elimina profilo</Text>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -549,6 +585,16 @@ const styles = StyleSheet.create({
   existingInfo: { flex: 1 },
   existingTitle: { color: colors.textPrimary, fontWeight: '600', fontSize: 14, marginBottom: 4 },
   existingSubtitle: { color: colors.textSecondary, fontSize: 12, lineHeight: 18 },
+
+  deleteBtn: {
+    marginTop: spacing.xxl,
+    borderWidth: 1,
+    borderColor: colors.error,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    alignItems: 'center',
+  },
+  deleteBtnText: { color: colors.error, fontWeight: '600', fontSize: 15 },
 
   photoRow: { marginBottom: spacing.sm },
   photoThumb: {
